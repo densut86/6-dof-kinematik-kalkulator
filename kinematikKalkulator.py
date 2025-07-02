@@ -17,12 +17,12 @@ def dh_transform(theta, d, a, alpha, offset=0):
 
 # Default Parameter DH
 dh_params = [
-    {'theta': 0, 'd': 169.77, 'a': 64.2, 'alpha': -90, 'offset': 0},
-    {'theta': -90, 'd': 0, 'a': 305, 'alpha': 0, 'offset': 0},
+    {'theta': 0, 'd': 170, 'a': 75, 'alpha': -90, 'offset': 0},
+    {'theta': -90, 'd': 0, 'a': 330, 'alpha': 0, 'offset': 0},
     {'theta': 0, 'd': 0, 'a': 0, 'alpha': -90, 'offset': 90},
-    {'theta': 0, 'd': -222.63, 'a': 0, 'alpha': -90, 'offset': 0},
+    {'theta': 0, 'd': -240, 'a': 0, 'alpha': -90, 'offset': 0},
     {'theta': 0, 'd': 0, 'a': 0, 'alpha': -90, 'offset': 0},
-    {'theta': 180, 'd': -36.25, 'a': 0, 'alpha': 0, 'offset': 0},
+    {'theta': 180, 'd': -40, 'a': 0, 'alpha': 0, 'offset': 0},
 ]
 
 # Fungsi untuk menghitung posisi end-effector dan orientasi (YPR)

@@ -17,9 +17,9 @@ def dh_transform(theta, d, a, alpha, offset=0):
 dh_params = [
     {'theta': 0, 'd': 535, 'a': 150,   'alpha': 90, 'offset': 0},
     {'theta': 0, 'd': 0, 'a': -730, 'alpha': 0,   'offset': 0},
-    {'theta': 0, 'd': 0,   'a': -140, 'alpha': 90,   'offset': 0},
-    {'theta': 0, 'd': 760,   'a': 0,   'alpha': 0, 'offset': 0},
-    {'theta': 0, 'd': 0,   'a': 0,   'alpha': 0,  'offset': 0},
+    {'theta': 0, 'd': 0,   'a': -140, 'alpha': -90,   'offset': 0},
+    {'theta': 0, 'd': 760,   'a': 0,   'alpha': 90, 'offset': 0},
+    {'theta': 0, 'd': 0,   'a': 0,   'alpha': 90,  'offset': 0},
     {'theta': 0, 'd': 105, 'a': 0,   'alpha': 0,   'offset': 0},
 ]
 
@@ -46,8 +46,8 @@ def plot_robot(joint_angles):
     ax.set_xlabel('X [mm]')
     ax.set_ylabel('Y [mm]')
     ax.set_zlabel('Z [mm]')
-    ax.set_title('Visualisasi Robot payload 20')
-    # Set equal aspect
+    ax.set_title('Visualisasi Robot')
+    # Set equal aspec
     ax.set_box_aspect([1,1,1])
     # Set limits
     ax.set_xlim(-1000, 1000)
@@ -57,5 +57,5 @@ def plot_robot(joint_angles):
 
 if __name__ == "__main__":
     # Contoh sudut joint (dalam derajat)
-    joint_angles = [0, -90, 0, 0, 0, 0]
+    joint_angles = [0, -90, 0, 0, 90, 0]
     plot_robot(joint_angles)

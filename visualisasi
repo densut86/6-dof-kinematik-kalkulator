@@ -1,0 +1,61 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+def dh_transform(theta, d, a, alpha, offset=0):
+    """Matriks transformasi Denavit-Hartenberg (DH)"""
+    theta = np.radians(theta + offset)
+    alpha = np.radians(alpha)
+    T = np.array([
+        [np.cos(theta), -np.sin(theta)*np.cos(alpha),  np.sin(theta)*np.sin(alpha), a*np.cos(theta)],
+        [np.sin(theta),  np.cos(theta)*np.cos(alpha), -np.cos(theta)*np.sin(alpha), a*np.sin(theta)],
+        [0,              np.sin(alpha),                np.cos(alpha),               d],
+        [0,              0,                            0,                           1]
+    ])
+    return T
+
+# Parameter DH sesuai diskusi sebelumnya
+dh_params = [
+    {'theta': 0, 'd': 535, 'a': 150,   'alpha': 90, 'offset': 0},
+    {'theta': 0, 'd': 0, 'a': -730, 'alpha': 0,   'offset': 0},
+    {'theta': 0, 'd': 0,   'a': -140, 'alpha': 90,   'offset': 0},
+    {'theta': 0, 'd': 760,   'a': 0,   'alpha': 0, 'offset': 0},
+    {'theta': 0, 'd': 0,   'a': 0,   'alpha': 0,  'offset': 0},
+    {'theta': 0, 'd': 105, 'a': 0,   'alpha': 0,   'offset': 0},
+]
+
+def get_joint_positions(joint_angles):
+    positions = [np.array([0,0,0,1])]
+    T_total = np.eye(4)
+    for i, param in enumerate(dh_params):
+        T = dh_transform(joint_angles[i], param['d'], param['a'], param['alpha'], param.get('offset', 0))
+        T_total = np.dot(T_total, T)
+        pos = T_total[:, 3]
+        positions.append(pos)
+    return np.array(positions)[:,:3]
+
+def plot_robot(joint_angles):
+    positions = get_joint_positions(joint_angles)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    # Plot link lines
+    ax.plot(positions[:,0], positions[:,1], positions[:,2], '-o', lw=2, c='blue')
+    # Plot joints
+    ax.scatter(positions[:,0], positions[:,1], positions[:,2], s=50, c='red')
+    # Label axes
+    ax.set_xlabel('X [mm]')
+    ax.set_ylabel('Y [mm]')
+    ax.set_zlabel('Z [mm]')
+    ax.set_title('Visualisasi Robot payload 20')
+    # Set equal aspect
+    ax.set_box_aspect([1,1,1])
+    # Set limits
+    ax.set_xlim(-1000, 1000)
+    ax.set_ylim(-1000, 1000)
+    ax.set_zlim(0, 2000)
+    plt.show()
+
+if __name__ == "__main__":
+    # Contoh sudut joint (dalam derajat)
+    joint_angles = [0, -90, 0, 0, 0, 0]
+    plot_robot(joint_angles)

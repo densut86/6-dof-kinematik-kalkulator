@@ -1,0 +1,185 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.optimize import minimize
+from matplotlib import animation
+
+def dh_transform(theta, d, a, alpha, offset=0):
+    """Matriks transformasi Denavit-Hartenberg (DH)"""
+    theta = np.radians(theta + offset)
+    alpha = np.radians(alpha)
+    T = np.array([
+        [np.cos(theta), -np.sin(theta)*np.cos(alpha),  np.sin(theta)*np.sin(alpha), a*np.cos(theta)],
+        [np.sin(theta),  np.cos(theta)*np.cos(alpha), -np.cos(theta)*np.sin(alpha), a*np.sin(theta)],
+        [0,              np.sin(alpha),                np.cos(alpha),               d],
+        [0,              0,                            0,                           1]
+    ])
+    return T
+
+# Parameter DH sesuai diskusi sebelumnya
+dh_params = [
+    {'d': 535, 'a': 150,   'alpha': 90, 'offset': 0},
+    {'d': 0, 'a': -730, 'alpha': 0,   'offset': 0},
+    {'d': 0,   'a': -140, 'alpha': -90,   'offset': 0},
+    {'d': 760,   'a': 0,   'alpha': 90, 'offset': 0},
+    {'d': 0,   'a': 0,   'alpha': 90,  'offset': 0},
+    {'d': 105, 'a': 0,   'alpha': 0,   'offset': 0},
+]
+
+def get_joint_positions(joint_angles):
+    positions = [np.array([0,0,0,1])]
+    T_total = np.eye(4)
+    for i, param in enumerate(dh_params):
+        T = dh_transform(joint_angles[i], param['d'], param['a'], param['alpha'], param.get('offset', 0))
+        T_total = np.dot(T_total, T)
+        pos = T_total[:, 3]
+        positions.append(pos)
+    return np.array(positions)[:,:3]
+def forward_kinematics(joint_angles):
+    """Menghitung posisi end-effector dari joint_angles."""
+    T_total = np.eye(4)
+    for i, param in enumerate(dh_params):
+        T = dh_transform(joint_angles[i], param['d'], param['a'], param['alpha'], param.get('offset', 0))
+        T_total = np.dot(T_total, T)
+    pos = T_total[:3, 3]
+    return pos
+
+def get_end_effector_pose(joint_angles):
+    """Mengembalikan posisi dan orientasi (Euler ZYX) end-effector."""
+    T_total = np.eye(4)
+    for i, param in enumerate(dh_params):
+        T = dh_transform(joint_angles[i], param['d'], param['a'], param['alpha'], param.get('offset', 0))
+        T_total = np.dot(T_total, T)
+    pos = T_total[:3, 3]
+    R = T_total[:3, :3]
+    # Euler ZYX (yaw-pitch-roll)
+    yaw = np.degrees(np.arctan2(R[1,0], R[0,0]))
+    pitch = np.degrees(np.arctan2(-R[2,0], np.sqrt(R[2,1]**2 + R[2,2]**2)))
+    roll = np.degrees(np.arctan2(R[2,1], R[2,2]))
+    return pos, (yaw, pitch, roll)
+
+def inverse_kinematics_numeric(target_pos, target_orient=None, initial_guess=None):
+    """
+    Inverse kinematics numerik untuk mencari joint_angles dari posisi dan orientasi end-effector.
+    target_orient: tuple (yaw, pitch, roll) dalam derajat.
+    """
+    if initial_guess is None:
+        initial_guess = [0, 0, 0, 0, 0, 0]
+
+    def objective(joint_angles):
+        pos, orient = get_end_effector_pose(joint_angles)
+        pos_error = np.sum((pos - target_pos) ** 2)
+        if target_orient is not None:
+            orient_error = np.sum((np.array(orient) - np.array(target_orient)) ** 2)
+            return pos_error + orient_error
+        return pos_error
+
+    bounds = [
+        (-185, 185),   # Joint 1
+        (-128, 53),    # Joint 2
+        (-138, 150),   # Joint 3
+        (-350, 350),   # Joint 4
+        (-130, 130),   # Joint 5
+        (-350, 350),   # Joint 6
+    ]
+
+    result = minimize(objective, initial_guess, bounds=bounds)
+    if result.success:
+        return result.x
+    else:
+        raise ValueError("Inverse kinematics solution not found")
+
+def plot_robot(joint_angles):
+    positions = get_joint_positions(joint_angles)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    # Plot link lines
+    ax.plot(positions[:,0], positions[:,1], positions[:,2], '-o', lw=2, c='blue')
+    # Plot joints
+    ax.scatter(positions[:,0], positions[:,1], positions[:,2], s=50, c='red')
+    # Highlight end-effector
+    end_eff = positions[-1]
+    ax.scatter(end_eff[0], end_eff[1], end_eff[2], s=100, c='green', marker='*', label='End Effector')
+    ax.text(end_eff[0], end_eff[1], end_eff[2], f'({end_eff[0]:.1f}, {end_eff[1]:.1f}, {end_eff[2]:.1f})', color='green')
+    # Label axes
+    ax.set_xlabel('X [mm]')
+    ax.set_ylabel('Y [mm]')
+    ax.set_zlabel('Z [mm]')
+    ax.set_title('Visualisasi Robot')
+    # Set equal aspect
+    ax.set_box_aspect([1,1,1])
+    # Set limits
+    ax.set_xlim(-1000, 1000)
+    ax.set_ylim(-1000, 1000)
+    ax.set_zlim(0, 2000)
+    ax.legend()
+    plt.show()
+
+
+def animate_robot(target_positions, target_orients=None, steps=50):
+    """
+    Animasi pergerakan robot ke beberapa target posisi (dan orientasi).
+    target_positions: list of [x, y, z]
+    target_orients: list of [yaw, pitch, roll] (opsional)
+    steps: jumlah interpolasi antar target
+    """
+    if target_orients is None:
+        target_orients = [None] * len(target_positions)
+
+    # Hitung joint_angles untuk setiap target
+    joint_targets = []
+    for pos, orient in zip(target_positions, target_orients):
+        joint = inverse_kinematics_numeric(pos, orient)
+        joint_targets.append(joint)
+
+    # Interpolasi sudut joint antar target
+    all_angles = []
+    for i in range(len(joint_targets)-1):
+        start = joint_targets[i]
+        end = joint_targets[i+1]
+        for t in np.linspace(0, 1, steps):
+            interp = (1-t)*np.array(start) + t*np.array(end)
+            all_angles.append(interp)
+    all_angles.append(joint_targets[-1])  # pastikan target terakhir masuk
+
+    # Setup plot
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.set_xlabel('X [mm]')
+    ax.set_ylabel('Y [mm]')
+    ax.set_zlabel('Z [mm]')
+    ax.set_title('Animasi Robot')
+    ax.set_box_aspect([1,1,1])
+    ax.set_xlim(-1000, 1000)
+    ax.set_ylim(-1000, 1000)
+    ax.set_zlim(0, 1500)
+
+    line, = ax.plot([], [], [], '-o', lw=2, c='blue')
+    eff_scatter = ax.scatter([], [], [], s=100, c='green', marker='*')
+
+    def update(frame):
+        angles = all_angles[frame]
+        positions = get_joint_positions(angles)
+        line.set_data(positions[:,0], positions[:,1])
+        line.set_3d_properties(positions[:,2])
+        eff_scatter._offsets3d = ([positions[-1,0]], [positions[-1,1]], [positions[-1,2]])
+        return line, eff_scatter
+
+    ani = animation.FuncAnimation(fig, update, frames=len(all_angles), interval=50, blit=False)
+    plt.show()
+    
+if __name__ == "__main__":
+    # Daftar target posisi dan orientasi (opsional)
+    target_positions = [
+        [600, 0, 300],
+        [600, 0, 700],
+        [1500, 0, 700],
+        [600, 0, 1100]
+    ]
+    target_orients = [
+        [0, 90, 0],
+        [0, 90, 0],
+        [0, 90, 0],
+        [0, 90, 0]
+    ]
+    animate_robot(target_positions, target_orients)
